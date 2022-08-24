@@ -1,24 +1,51 @@
 import socket
+import json
 
 class Connect:
-    def __init__(self, id, server_address, cs, rn) -> None:
-        self.server_address = server_address
-        self.client_id = id
-        self.call_sign = cs
-        self.real_name = rn
-        self.init()
-    
-    def init(self):
+    def __init__(self) -> None:
         self.connect = socket.socket()
-        self.connect.connect((self.server_address, 3011))
-        self.send("ADDCLIENT", self.client_id, "localhost", self.call_sign, "1", "1", "1", self.real_name)
+        self.is_connect = False
+    
+    def init(self, server_address):
+        self.connect.connect((server_address, 447))
+        self.is_connect = True
         
-    def send(self, command, *args):
-        msg = command + ":*:zPilot:U114514:1:" + (":".join(args))
-        print("send:" + msg)
-        msg = msg.encode("GBK")
-        self.connect.sendall(msg)
+        
+    def send(self, data):
+        if self.is_connect:
+            try:
+                msg = json.dumps(data).encode()
+                l = "{:0>4d}".format(len(msg)).encode()
+                msg = l + msg
+                send_len = self.connect.sendall(msg)
+            except (ConnectionResetError, OSError):
+                send_len = 0
+                self.close()
+        else:
+            send_len = 0
+        return send_len
     
     def recv(self):
-        r = self.connect.recv(1024).decode("GBK")
+        try:
+            l = int(self.connect.recv(4).decode())
+            r = self.connect.recv(l).decode()
+            if len(r) <= 0:
+                r = {}
+                self.is_connect = False
+            else:
+                r = json.loads(r)
+        except (ConnectionResetError, OSError):
+            r = {}
+            self.close()
+        except json.JSONDecodeError:
+            r = {}
         return r
+    
+    def close(self):
+        try:
+            self.connect.shutdown(2)
+            self.connect.close()
+        except:
+            pass
+        self.connect = socket.socket()
+        self.is_connect = False

@@ -134,9 +134,10 @@ PLUGIN_API void XPluginReceiveMessage(	XPLMPluginID	inFromWho,
 }
 
 
-XPLMObjectRef B738obj = XPLMLoadObject("Resources\\plugins\\X-IvAp Resources\\CSL\\B738\\B738ai.obj");
+std::map<std::string, XPLMObjectRef> planeObjectMap;
 std::map<std::string, XPLMInstanceRef> planeInstanceMap;
 std::map<std::string, std::map<std::string, double>> otherPilotData;
+std::map<std::string, std::string> otherPilotModelData;
 
 float	MyFlightLoopCallback(
                                    float                inElapsedSinceLastCall,    
@@ -152,12 +153,33 @@ float	MyFlightLoopCallback(
 	for (auto it = otherPilotData.begin(); it != otherPilotData.end(); it++)
 	{
 		std::string cs = it->first;
-		int i = planeInstanceMap.count(cs);
-		if (i == 0)
+		if (planeInstanceMap.count(cs) == 0)
 		{
+			std::string model;
+			if (otherPilotModelData.count(cs) == 0)
+			{
+				XPLMDebugString("model data no");
+				continue;
+			}
+			else
+			{
+				model = otherPilotModelData[cs];
+			}
+			if (planeObjectMap.count(model) == 0)
+			{
+				char* m = (char*)model.c_str();
+				XPLMDebugString(m);
+				XPLMDebugString("\n");
+				char path[100];
+				sprintf(path, "Resources\\plugins\\zConnect\\CSL\\%s\\%s.obj", m, m);
+				XPLMDebugString(path);
+				XPLMDebugString("\n");
+				planeObjectMap[model] = XPLMLoadObject(path);
+			}
+			XPLMObjectRef obj = planeObjectMap[model];
 			const char* nullArray[] = { NULL };
-			XPLMInstanceRef B738ins = XPLMCreateInstance(B738obj, nullArray);
-			planeInstanceMap[cs] = B738ins;
+			XPLMInstanceRef ins = XPLMCreateInstance(obj, nullArray);
+			planeInstanceMap[cs] = ins;
 		}
 
 
@@ -184,7 +206,7 @@ float	MyFlightLoopCallback(
 		pos->heading = otherPilotData[cs]["psi"];
 		pos->roll = otherPilotData[cs]["phi"];
 		
-		char x[20];
+		/*char x[20];
 		char y[20];
 		char z[20];
 		sprintf(x, "%f", otherPilotData[cs]["vx"]);
@@ -201,7 +223,7 @@ float	MyFlightLoopCallback(
 		XPLMDebugString("\n");
 		XPLMDebugString("vz:");
 		XPLMDebugString(z);
-		XPLMDebugString("\n");/**/
+		XPLMDebugString("\n");*/
 
 		XPLMInstanceRef ref = planeInstanceMap[cs];
 		XPLMInstanceSetPosition(ref, pos, NULL);
@@ -238,6 +260,8 @@ void RecvDataLoop() {
 			isConnect = false;
 			break;
 		}
+		/*XPLMDebugString(charRecv);
+		XPLMDebugString("\n");*/
 		try
 		{
 			json jsonRecv = json::parse(charRecv);
@@ -274,12 +298,16 @@ void RecvDataLoop() {
 				m["r_dot"] = std::stod(jsonRecv["r_dot"].as_string());
 				otherPilotData[jsonRecv["cs"].as_string()] = m;
 			}
+			else if (cmd == "model")
+			{
+				otherPilotModelData[jsonRecv["cs"].as_string()] = jsonRecv["model"].as_string();
+			}
 		}
-		catch (const std::exception&e)
+		catch (const std::exception&)
 		{
-			XPLMDebugString(e.what());
+			XPLMDebugString("parse json error\n");
 		}
-		
+		delete []charRecv;
 	}
 }
 
@@ -291,9 +319,9 @@ float SendDataLoopCallback(float inElapsedSinceLastCall, float inElapsedTimeSinc
 		return 2;
 	}
 
-	char charLat[10], charLon[10], charAlt[12], charThe[10], charPhi[10], charPsi[10], charGs[11];
-	char charVX[10], charVY[10], charVZ[10], charAX[10], charAY[10], charAZ[10];
-	char charP[10], charQ[10], charR[12], charPD[10], charQD[10], charRD[10];
+	char charLat[11], charLon[11], charAlt[13], charThe[11], charPhi[11], charPsi[11], charGs[12];
+	char charVX[11], charVY[11], charVZ[11], charAX[11], charAY[11], charAZ[11];
+	char charP[11], charQ[11], charR[13], charPD[11], charQD[11], charRD[11];
 	sprintf(charLat, "%f", XPLMGetDataf(gPlaneLat));
 	sprintf(charLon, "%f", XPLMGetDataf(gPlaneLon));
 	sprintf(charAlt, "%f", XPLMGetDataf(gPlaneEle));

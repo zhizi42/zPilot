@@ -29,15 +29,11 @@ int sendMsg(char* msg) {
 }
 
 char* recvMsg() {
-    char msg[1024];
-    int recvLen = recv(s, msg, 1024, 0);
-    if (recvLen <= 0)
-    {
-        return "";
-    }
-    msg[recvLen] = '\0';
-    //不复制字符串会出现奇怪的错误
-    char* m = (char*)malloc(sizeof(char) * recvLen);
-    strcpy(m, msg);
-    return m;
+    char len[5];
+    recv(s, len, 4, 0);
+    int recvLen = atoi(len);
+    char* msg = new char[recvLen + 1]();
+    recv(s, msg, recvLen, 0);
+    std::cout << msg << std::endl;
+    return msg;
 }
